@@ -1,0 +1,16 @@
+.env
+node_modules/
+serviceAccountKey.json
+
+
+# Secret files
+.env
+.env.*
+!.env.example
+
+# Firebase credentials
+serviceAccountKey.json
+*serviceAccount*.json
+
+# Node dependencies
+node_modules/

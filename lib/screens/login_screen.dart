@@ -135,6 +135,8 @@
 
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -156,40 +158,127 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void login() {
-    final email = emailController.text.trim();
-    final password = passwordController.text;
+  
+Future<void> login() async {
+  final email = emailController.text.trim();
+  final password = passwordController.text;
 
-    final emailPattern =
-        RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
-    if (!emailPattern.hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid email address'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
+  if (!emailPattern.hasMatch(email)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please enter a valid email address')),
+    );
+    return;
+  }
 
-    if (password.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your password'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
+  if (password.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please enter your password')),
+    );
+    return;
+  }
+
+  try {
+    final credential = await FirebaseAuth.instance
+        .signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => DashboardScreen(userEmail: email),
+        builder: (_) => DashboardScreen(
+          userEmail: credential.user!.email ?? email,
+        ),
+      ),
+    );
+  } on FirebaseAuthException catch (e) {
+    if (!mounted) return;
+
+    String message;
+
+    switch (e.code) {
+      case 'user-not-found':
+      case 'invalid-credential':
+        message = 'No account found, or the password is incorrect.';
+        break;
+      case 'wrong-password':
+        message = 'Incorrect password.';
+        break;
+      case 'invalid-email':
+        message = 'Please enter a valid email address.';
+        break;
+      case 'too-many-requests':
+        message = 'Too many attempts. Please try again later.';
+        break;
+      default:
+        message = e.message ?? 'Login failed. Please try again.';
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  } catch (_) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Something went wrong. Please try again.'),
       ),
     );
   }
+}
+
+Future<void> register() async {
+  final email = emailController.text.trim();
+  final password = passwordController.text;
+
+  if (email.isEmpty || !email.contains('@')) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Enter a valid email address')),
+    );
+    return;
+  }
+
+  if (password.length < 6) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Password must contain at least 6 characters'),
+      ),
+    );
+    return;
+  }
+
+  try {
+    await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Account created! You can now sign in.'),
+      ),
+    );
+
+    passwordController.clear();
+  } on FirebaseAuthException catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.message ?? 'Registration failed'),
+      ),
+    );
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -411,6 +500,26 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
+                  
+Center(
+  child: TextButton(
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const RegisterScreen(),
+        ),
+      );
+    },
+    child: const Text(
+      'New student? Create account',
+      style: TextStyle(
+        color: Color(0xFF4285F4),
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  ),
+),
 
                   const SizedBox(height: 25),
 
